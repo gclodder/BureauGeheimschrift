@@ -4,7 +4,7 @@ Spelpagina: gebruik het adres van je eigen installatie.
 
 ## Voor de les
 
-1. Open **Voor docenten** en kies **Maak een sessie**. Alleen de docent logt in met het ingestelde docentwachtwoord. Geef het dossier een herkenbare klasnaam. Zeven minuten per ronde is een goed vertrekpunt.
+1. Open **Voor docenten** en kies **Start een klasdossier**. Je hebt geen account of wachtwoord nodig. Geef het dossier een herkenbare klasnaam. Zeven minuten per ronde is een goed vertrekpunt. Bewaar de **geheime docentlink** voor gebruik op een ander apparaat. Deel die link niet met leerlingen.
 2. Deel de deelname-link of toon de sessiecode. Leerlingen melden zich aan met een unieke detectivenaam, zonder account.
 3. Na aanmelden verschijnt de persoonlijke terugkeercode groot in een modal, met de detectivenaam. Nieuwe codes hebben 8 tekens, gegroepeerd als ABCD-EFGH; bestaande codes blijven geldig. Met **Toon mijn code groot** kan de leerling de modal opnieuw openen. Laat leerlingen hun sessiecode en persoonlijke terugkeercode bewaren. Op hetzelfde apparaat blijft hun dossier automatisch beschikbaar; op een ander apparaat gebruiken ze de terugkeercode.
 4. Controleer de wachtkamer. Verwijder alleen voor de start een onjuiste of dubbele aanmelding. Kies de **Methode voor ronde 1** en klik **Start eerste ronde** zodra iedereen klaarzit.
@@ -19,7 +19,7 @@ De eerste rolverdeling is willekeurig. De app verdeelt vervolgens de rollen even
 
 Kies vóór iedere ronde Caesar, Rozenkruisers, substitutie of Vigenère. Je bepaalt zelf de volgorde en het aantal rondes. Herhaal een methode zolang dat nuttig is, of wissel na de nabespreking.
 
-Na iedere ronde kun je het dossier laten staan, een volgende ronde starten of **Rond het dossier af** kiezen. Ook een afgerond dossier kun je later voortzetten met een nieuwe ronde. Open daarvoor **Open een eerder klasdossier**. Leerlingen gebruiken dezelfde sessiecode en terugkeercode; gespeelde rondes en punten blijven bewaard.
+Na iedere ronde kun je het dossier laten staan, een volgende ronde starten of **Rond het dossier af** kiezen. Open een eerder dossier vanuit je browser of met je geheime docentlink. Leerlingen gebruiken dezelfde sessiecode en terugkeercode zolang het dossier bestaat. Na zeven dagen zonder spelactie wordt het dossier automatisch gewist. Je kunt het ook eerder wissen via **Geheime docentlink en dossierbeheer**.
 
 Voor 40 minuten kun je bijvoorbeeld circa 10 minuten uitleg, aanmelden en oefenen, drie rondes van 7 minuten en circa 9 minuten nabespreking plannen. Je kunt alles aan één methode besteden of methodes afwisselen.
 

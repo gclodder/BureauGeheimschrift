@@ -1,13 +1,9 @@
 import assert from 'node:assert/strict';
 import {encode} from '../lib/game.ts';
 const origin=process.env.GAME_ORIGIN||'http://127.0.0.1:5173';
-const login=await fetch(origin+'/docent/login',{method:'POST',redirect:'manual',body:new URLSearchParams({password:process.env.TEACHER_PASSWORD})});
-assert.equal(login.status,303);
-const cookie=login.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ');
 let code='',admin='';
-async function post(action,extra={},token=admin,expect=200){const res=await fetch(origin+'/api/game',{method:'POST',headers:{'Content-Type':'application/json',Cookie:token===admin?cookie:'',Authorization:'Bearer '+token},body:JSON.stringify({action,code,...extra}),signal:AbortSignal.timeout(60000)});const body=await res.json();assert.equal(res.status,expect,JSON.stringify(body));return body;}
-async function get(token=admin){const res=await fetch(origin+'/api/game?code='+code,{headers:{Cookie:token===admin?cookie:'',Authorization:'Bearer '+token},signal:AbortSignal.timeout(60000)});const body=await res.json();assert.equal(res.status,200,JSON.stringify(body));return body;}
-const anon=await fetch(origin+'/api/game',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create'})});assert.equal(anon.status,401);
+async function post(action,extra={},token=admin,expect=200){const res=await fetch(origin+'/api/game',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({action,code,...extra}),signal:AbortSignal.timeout(60000)});const body=await res.json();assert.equal(res.status,expect,JSON.stringify(body));return body;}
+async function get(token=admin){const res=await fetch(origin+'/api/game?code='+code,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(60000)});const body=await res.json();assert.equal(res.status,200,JSON.stringify(body));return body;}
 const created=await post('create',{name:'TEST - 23 fictieve leerlingen',ranking:true});code=created.view.code;admin=created.token;
 const pupils=await Promise.all(Array.from({length:23},(_,i)=>post('join',{name:'Testagent '+String(i+1).padStart(2,'0')},'')));
 const byId=new Map(pupils.map(p=>[p.view.self,p]));
@@ -38,7 +34,6 @@ for(const p of final.progress){assert.ok(p.roles.Alice>=1&&p.roles.Bob>=1&&p.rol
 const first=pupils[0];const resumed=await post('resume',{returnCode:first.returnCode.slice(0,4)+'-'+first.returnCode.slice(4)},'');assert.equal(resumed.view.self,first.view.self);
 const recovered=await post('recoverPlayer',{player:first.view.self});assert.equal(recovered.recovered.returnCode.length,8);
 const resumed2=await post('resume',{returnCode:recovered.recovered.returnCode},'');assert.equal(resumed2.view.self,first.view.self);
-const listed=await fetch(origin+'/api/sessions',{headers:{Cookie:cookie}});assert.equal(listed.status,200);assert.ok((await listed.json()).sessions.some(s=>s.code===code));
 const reopened=await post('reopen',{code});assert.equal(reopened.teacher,true);admin=reopened.token;
 assert.equal((await get()).state,'finished');
 console.log('PASS: real API session, 23 parallel joins, eight freely chosen rounds, continuing a finished dossier, all roles, four ciphers, server-side automatic encryption, free security riddles, validation, pause, separate Eve views, hints, scores, returning pupils and teacher recovery.');

@@ -1,30 +1,46 @@
-import {db} from '../../../lib/storage.mjs';
-import {teacherOwner} from '../../../lib/auth.mjs';
+import {db,purgeExpired,RETENTION_MS} from '../../../lib/storage.mjs';
 import {METHODS,securityRiddle,reserveFor,grantKeyHint,clean,letters,encode,createRound,currentGroup,roleFor,shuffle,view,advanceTime,type Game,type Answer} from '../../../lib/game.ts';
 export const dynamic='force-dynamic';
 const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
 async function hash(s:string){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
 function secret(len=32){const bytes=new Uint8Array(len);crypto.getRandomValues(bytes);return [...bytes].map(x=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[x%32]).join('');}
 function fail(s:string):never{throw new Error(s);}
-async function read(code:string){const row=await db.prepare('SELECT data,version FROM sessions WHERE code=?').get(code) as {data:string,version:number}|undefined;if(!row)fail('Deze sessiecode bestaat niet.');return {row,game:JSON.parse(row.data) as Game};}
-async function change(code:string,fn:(game:Game)=>Promise<unknown>){for(let i=0;i<30;i++){const{row,game}=await read(code);const value=await fn(game);const result=await db.prepare('UPDATE sessions SET data=?,version=version+1 WHERE code=? AND version=?').run(JSON.stringify(game),code,row.version);if(Number(result.changes)===1)return value;await new Promise(resolve=>setTimeout(resolve,20+Math.random()*80));}fail('Het is druk. Probeer het nog een keer.');}
-async function identify(game:Game,token:string,req:Request){const h=await hash(token);if(h===game.adminHash){if(teacherOwner(req)!==game.owner)fail('Log eerst in als docent.');return {teacher:true,id:'teacher'};}const p=game.players.find(p=>p.tokenHash===h);if(!p)fail('Meld je opnieuw aan met je terugkeercode.');return {teacher:false,id:p.id};}
-export async function GET(req:Request){try{const u=new URL(req.url),code=(u.searchParams.get('code')||'').toUpperCase(),token=req.headers.get('Authorization')?.replace(/^Bearer /,'')||'';const {game}=await read(code);const who=await identify(game,token,req);if(advanceTime(game)){return json(await change(code,async g=>{advanceTime(g);return view(g,who.id,who.teacher);}));}return json(view(game,who.id,who.teacher));}catch(e){return json({error:(e as Error).message},400);}}
+async function read(code:string){const row=db.prepare('SELECT data,version,last_activity FROM sessions WHERE code=? AND last_activity>?').get(code,Date.now()-RETENTION_MS) as {data:string,version:number,last_activity:number}|undefined;if(!row)throw new SessionMissing();return {row,game:JSON.parse(row.data) as Game};}
+class SessionMissing extends Error { constructor(){super('Dit klasdossier bestaat niet meer of is verlopen.');} }
+const failure=(e:unknown)=>json({error:(e as Error).message},e instanceof SessionMissing?404:400);
+async function change(code:string,fn:(game:Game)=>Promise<unknown>,touch=true){for(let i=0;i<30;i++){const{row,game}=await read(code);const value=await fn(game);const result=db.prepare('UPDATE sessions SET data=?,version=version+1,last_activity=? WHERE code=? AND version=? AND last_activity>?').run(JSON.stringify(game),touch?Date.now():row.last_activity,code,row.version,Date.now()-RETENTION_MS);if(Number(result.changes)===1)return value;await new Promise(resolve=>setTimeout(resolve,20+Math.random()*80));}fail('Het is druk. Probeer het nog een keer.');}
+async function identify(game:Game,token:string){const h=await hash(token);if(h===game.adminHash)return {teacher:true,id:'teacher'};const p=game.players.find(p=>p.tokenHash===h);if(!p)fail('Je toegang klopt niet. Gebruik je terugkeercode of geheime docentlink.');return {teacher:false,id:p.id};}
+const creations:number[]=[];
+export async function GET(req:Request){try{const u=new URL(req.url),code=(u.searchParams.get('code')||'').toUpperCase(),token=req.headers.get('Authorization')?.replace(/^Bearer /,'')||'';const {game}=await read(code);const who=await identify(game,token);if(advanceTime(game)){return json(await change(code,async g=>{advanceTime(g);return view(g,who.id,who.teacher);},false));}return json(view(game,who.id,who.teacher));}catch(e){return failure(e);}}
 export async function POST(req:Request){try{
  const origin=req.headers.get('origin');if(origin&&origin!==new URL(req.url).origin)return json({error:'Open het spel via de eigen spelpagina.'},403);
  const raw=await req.text();if(raw.length>12000)return json({error:'Dit bericht is te groot.'},413);const b=JSON.parse(raw);const action=b.action;
  if(action==='create'){
-  const owner=teacherOwner(req);if(!owner)return json({error:'Log eerst in als docent.',signin:true},401);
-  const token=secret(),code=secret(6);const game:Game={code,name:String(b.name||'HV5 - Geheime dienst').slice(0,60),owner,adminHash:await hash(token),created:Date.now(),players:[],roster:[],state:'lobby',index:-1,rounds:[],minutes:Math.min(15,Math.max(5,Number(b.minutes)||7)),hints:b.hints!==false,ranking:b.ranking!==false,plan:[]};
-  await db.prepare('INSERT INTO sessions(code,data,version) VALUES(?,?,0)').run(code,JSON.stringify(game));return json({token,view:view(game,'teacher',true)});
+  const token=secret(),adminHash=await hash(token),now=Date.now();
+  while(creations.length&&creations[0]<=now-60_000)creations.shift();
+  if(creations.length>=30)return Response.json({error:'Er worden veel dossiers aangemaakt. Probeer het over een minuut opnieuw.'},{status:429,headers:{'Cache-Control':'no-store','Retry-After':'60'}});
+  purgeExpired(now);
+  if(Number(db.prepare('SELECT count(*) AS n FROM sessions').get()?.n)>=500)return json({error:'Er zijn tijdelijk geen nieuwe dossiers beschikbaar.'},503);
+  const insert=db.prepare('INSERT INTO sessions(code,data,version,last_activity) VALUES(?,?,0,?) ON CONFLICT(code) DO NOTHING');
+  for(let i=0;i<5;i++){
+   const code=secret(6);const game:Game={code,name:String(b.name||'HV5 - Geheime dienst').slice(0,60),adminHash,created:now,players:[],roster:[],state:'lobby',index:-1,rounds:[],minutes:Math.min(15,Math.max(5,Number(b.minutes)||7)),hints:b.hints!==false,ranking:b.ranking!==false,plan:[]};
+   if(Number(insert.run(code,JSON.stringify(game),now).changes)===1){creations.push(now);return json({token,teacher:true,view:view(game,'teacher',true)});}
+  }
+  return json({error:'Kon geen sessiecode maken. Probeer opnieuw.'},503);
  }
  const code=String(b.code||'').toUpperCase();
- if(action==='reopen')return json(await change(code,async game=>{const owner=teacherOwner(req);if(!owner||owner!==game.owner)fail('Log in met het docentaccount waarmee dit dossier is gemaakt.');const token=secret();game.adminHash=await hash(token);return {token,teacher:true,view:view(game,'teacher',true)};}));
+ const token=req.headers.get('Authorization')?.replace(/^Bearer /,'')||'';
+ if(action==='reopen')return json(await change(code,async game=>{if(!(await identify(game,token)).teacher)fail('Gebruik de geheime docentlink van dit dossier.');return {token,teacher:true,view:view(game,'teacher',true)};}));
+ if(action==='deleteSession'){
+  const {game}=await read(code);
+  if(!(await identify(game,token)).teacher)fail('Alleen de docent kan dit dossier wissen.');
+  db.prepare('DELETE FROM sessions WHERE code=? AND json_extract(data,\'$.adminHash\')=?').run(code,game.adminHash);
+  return json({deleted:true});
+ }
  if(action==='join')return json(await change(code,async game=>{if(game.state!=='lobby')fail('De sessie is al begonnen. Gebruik je terugkeercode als je eerder deelnam.');if(game.players.length>=40)fail('Deze sessie is vol.');const name=String(b.name||'').trim().slice(0,30);if(!name)fail('Vul je detectivenaam in.');if(game.players.some(p=>p.name.toLowerCase()===name.toLowerCase()))fail('Deze detectivenaam is al in gebruik. Kies een andere detectivenaam.');const token=secret(),returnCode=secret(8),id=crypto.randomUUID();game.players.push({id,name,tokenHash:await hash(token),returnHash:await hash(returnCode)});return{token,returnCode,view:view(game,id)};}));
  if(action==='resume')return json(await change(code,async game=>{const rh=await hash(String(b.returnCode||'').toUpperCase().replace(/[\s-]/g,''));const p=game.players.find(p=>p.returnHash===rh);if(!p)fail('De terugkeercode klopt niet.');const token=secret();p.tokenHash=await hash(token);return {token,view:view(game,p.id)};}));
- const token=req.headers.get('Authorization')?.replace(/^Bearer /,'')||'';
  return json(await change(code,async game=>{
-  const who=await identify(game,token,req);const r=game.rounds[game.index];const g=currentGroup(game,who.id);
+  const who=await identify(game,token);const r=game.rounds[game.index];const g=currentGroup(game,who.id);
   if(who.teacher){
    if(action==='start'||action==='next'){
     if(!['lobby','review','finished'].includes(game.state))fail('Sluit eerst de huidige ronde af.');
@@ -83,4 +99,4 @@ export async function POST(req:Request){try{
   }
   fail('Deze actie bestaat niet.');
  }));
- }catch(e){return json({error:(e as Error).message},400);}}
+ }catch(e){return failure(e);}}
