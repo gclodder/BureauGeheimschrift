@@ -3,7 +3,7 @@ services:
     build: .
     restart: unless-stopped
     environment:
-            TEACHER_PASSWORD: "${HV5_TEACHER_PASSWORD:?Stel HV5_TEACHER_PASSWORD in}"
+      TEACHER_PASSWORD: "${HV5_TEACHER_PASSWORD:?Stel HV5_TEACHER_PASSWORD in}"
       PUBLIC_ORIGIN: "${PUBLIC_ORIGIN:-}"
     ports:
       - "127.0.0.1:3000:3000"
