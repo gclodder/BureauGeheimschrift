@@ -26,7 +26,7 @@ function KeyTable({method,secret,shift}:{method:string;secret:string;shift:numbe
  const code=method==='caesar'?ABC.slice(shift)+ABC.slice(0,shift):secret;
  return <><div className="alphabet">{[...ABC].map((letter,i)=><div key={letter}><b>{letter}</b><span>{code[i]}</span></div>)}</div><p className="small muted">Boven: oorspronkelijke letter. Onder: codeletter. {method==='caesar'?`Sleutel: +${shift}. Vooruit versleutelen, terug ontsleutelen.`:'Lees van boven naar beneden om te versleutelen.'}</p></>;
 }
-function Logo(){return <div className="brand"><span className="brand-mark">B<span>G</span></span><div>Bureau Geheimschrift<small>AFDELING CRYPTOGRAFIE · HV5</small></div></div>;}
+function Logo(){return <div className="brand"><img className="brand-mark" src="/favicon.svg" alt="" width={44} height={44}/><div>Bureau Geheimschrift<small>AFDELING CRYPTOGRAFIE · HV5</small></div></div>;}
 const roleLabel={Alice:'De verzender',Bob:'De ontvanger',Eve:'De onderschepper'};
 function demoState(method='caesar',role='Alice'):RecordView{
  const key=method==='vigenere'?'WORM':method==='pigpen'?'DEFGHIJKLMNOPQRSTUVWXYZABC':'QWERTYUIOPASDFGHJKLZXCVBNM',shift=5;
