@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {encode,SECURITY_KEYS,securityRiddle,createRound,view,grantKeyHint,result} from '../lib/game.ts';
+assert.equal(encode('ATTACKATDAWN','vigenere','LEMON',0),'LXFOPVEFRNHR');
+assert.equal(encode('ATTACK AT DAWN','vigenere','LEMON',0),'LXFOPV EF RNHR');
+assert.equal(encode('ABC XYZ','vigenere','A',0),'ABC XYZ');
+assert.equal(encode('ZZZZ','vigenere','B',0),'AAAA');
+assert.equal(new Set(SECURITY_KEYS.map(x=>x.key)).size,SECURITY_KEYS.length);
+const game={code:'TEST',name:'test',players:['a','b','e','f'].map(id=>({id,name:id})),roster:['a','b','e','f'],index:0,rounds:[],minutes:7,hints:true,ranking:true,state:'active',plan:['vigenere']};
+const r=createRound(game);game.rounds.push(r);const g=r.groups[0],eve=g.eves[0],other=g.eves[1];
+assert.ok(securityRiddle(g.key));assert.equal(view(game,eve).group.key,undefined);assert.equal(view(game,eve).riddle,undefined);
+r.answers[eve]={text:'',tries:0,correct:false,hint:0,discoveries:0,riddleRequested:true};
+assert.equal(view(game,eve).riddle,securityRiddle(g.key));assert.equal(view(game,eve).group.key,undefined);assert.equal(view(game,other).riddle,undefined);
+r.answers[eve].keywordSolved=true;assert.equal(view(game,eve).group.key,g.key);assert.equal(view(game,eve).group.plaintext,undefined);assert.equal(view(game,other).group.key,undefined);
+assert.throws(()=>grantKeyHint(r,g,r.answers[eve]),/gratis raadselhint/);
+r.answers[eve].correct=true;r.answers[eve].discoveries=1;assert.equal(result(game,r,g,eve).points,2);
+g.autoEncrypted=true;g.sentAt=1;assert.equal(result(game,r,g,g.alice).points,2);
+console.log('PASS: Vigenere known vectors, spaces, wraparound, security riddles, independent Eve privacy and free-hint scores.');

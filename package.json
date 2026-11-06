@@ -1,0 +1,14 @@
+{
+  "name": "encryptiespel-hv5",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.15 <25" },
+  "scripts": {
+    "build": "vite build",
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node tests/game.mjs && node tests/hints.mjs && node tests/vigenere.mjs && node tests/self-host.mjs"
+  },
+  "dependencies": { "react": "19.2.6", "react-dom": "19.2.6" },
+  "devDependencies": { "vite": "8.0.13" }
+}

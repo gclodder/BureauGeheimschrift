@@ -1,0 +1,13 @@
+services:
+  spel:
+    build: .
+    restart: unless-stopped
+    environment:
+      TEACHER_PASSWORD: "${TEACHER_PASSWORD:?Stel TEACHER_PASSWORD in .env in}"
+      PUBLIC_ORIGIN: "${PUBLIC_ORIGIN:-}"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - dossiers:/app/data
+volumes:
+  dossiers:
